@@ -5,6 +5,7 @@ import logging
 import json
 import datetime
 
+import anticrlf
 from veracode_api_py import VeracodeAPI as vapi
 
 def creds_expire_days_warning():
@@ -95,10 +96,11 @@ def main():
     businesscriticality = args.businesscriticality
     usernames = args.usernames
 
-    logging.basicConfig(filename='vconboardapp.log',
-                        format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
-                        datefmt='%m/%d/%Y %I:%M:%S%p',
-                        level=logging.INFO)
+    handler = logging.FileHandler('vconboardapp.log', encoding='utf8')
+    handler.setFormatter(anticrlf.LogFormatter('%(asctime)s - %(levelname)s - %(funcName)s - %(message)s'))
+    logger = logging.getLogger(__name__)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
     # CHECK FOR CREDENTIALS EXPIRATION
     creds_expire_days_warning()
