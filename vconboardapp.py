@@ -8,6 +8,13 @@ import datetime
 import anticrlf
 from veracode_api_py import VeracodeAPI as vapi
 
+log = logging.getLogger(__name__)
+
+def setup_logger():
+    handler = logging.FileHandler('vconboardapp.log', encoding='utf8')
+    handler.setFormatter(anticrlf.LogFormatter('%(asctime)s - %(levelname)s - %(funcName)s - %(message)s'))
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
+
 def creds_expire_days_warning():
     creds = vapi().get_creds()
     exp = datetime.datetime.strptime(creds['expiration_ts'], "%Y-%m-%dT%H:%M:%S.%f%z")
@@ -27,7 +34,7 @@ def create_team(teamname,businessunit=""):
     existingteam = find_team_named(teamname)
     if len(existingteam) > 0: 
         teamguid = existingteam[0]["team_id"]
-        logging.info("Found team named {} with guid {}".format(teamname,teamguid))
+        log.info("Found team named {} with guid {}".format(teamname,teamguid))
         return teamguid
 
     if businessunit == "":
@@ -44,7 +51,7 @@ def create_api_user(apiname,email,teamguid):
     if len(existinguser) > 0:
         # return existing user rather than creating new one
         userguid = existinguser[0]["user_id"]
-        logging.info("Found a user named {} with guid {}".format(apiname,userguid))
+        log.info("Found a user named {} with guid {}".format(apiname,userguid))
         return userguid
 
     r = vapi().create_user(email=email, firstname=apiname, lastname="API User",type="API",
@@ -66,7 +73,7 @@ def find_app_named(appname):
 def create_app(appname,teamguid,businesscriticality="HIGH",businessunit=""):
     if len(find_app_named(appname)) > 0:
         errormsg = "There is already an application named {}".format(appname)
-        logging.error(errormsg)
+        log.warning(errormsg)
         print(errormsg)
         return 0
 
@@ -96,23 +103,17 @@ def main():
     businesscriticality = args.businesscriticality
     usernames = args.usernames
 
-    handler = logging.FileHandler('vconboardapp.log', encoding='utf8')
-    handler.setFormatter(anticrlf.LogFormatter('%(asctime)s - %(levelname)s - %(funcName)s - %(message)s'))
-    logger = logging.getLogger(__name__)
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
-
     # CHECK FOR CREDENTIALS EXPIRATION
     creds_expire_days_warning()
 
     #create team
     team_guid = create_team(teamname=appname,businessunit=businessunit)
-    logging.info("Using team named {} with guid {}".format(appname,team_guid))
+    log.info("Using team named {} with guid {}".format(appname,team_guid))
 
     #create api user
     api_username = 'api-{}'.format(appname)
     user_guid = create_api_user(api_username,email,team_guid)
-    logging.info("Using API user with guid {}".format(user_guid))
+    log.info("Using API user with guid {}".format(user_guid))
 
     #add users to team
     if usernames == None:
@@ -120,19 +121,20 @@ def main():
     else:
         usernames.append(api_username)
     add_users_to_team(team_guid,usernames)
-    logging.info("Added users to team {}: {}".format(team_guid, usernames))
+    log.info("Added users to team {}: {}".format(team_guid, usernames))
 
     #create application profile
     app_guid = create_app(appname,team_guid,businesscriticality=businesscriticality,businessunit=businessunit)
     if app_guid == 0: return
-    logging.info("Created application named {} with guid {}".format(appname, app_guid))
+    log.info("Created application named {} with guid {}".format(appname, app_guid))
 
     #create workspace
     workspace_guid = create_workspace(appname)
-    logging.info("Created workspace named {} with guid {}".format(appname,workspace_guid))
+    log.info("Created workspace named {} with guid {}".format(appname,workspace_guid))
 
     print("Success. Check the logs for the IDs for the newly created application profile, workspace, team and API user.")
     print("Don't forget to sign into the platform with the user to generate your API credentials!")
 
 if __name__ == '__main__':
+    setup_logger()
     main()
